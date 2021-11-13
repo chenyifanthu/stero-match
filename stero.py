@@ -24,6 +24,20 @@ def get_extrinsics(points1, point2, camK):
     R1, R2, t = cv2.decomposeEssentialMat(E)
     return R1, t
 
+def get_f_r(pos, arr):
+    l = r = pos
+    for i in range(pos, 1, -1):
+        if arr[i] > 0:
+            l = i
+            break
+    for i in range(pos, len(arr)-1):
+        if arr[i] > 0:
+            r = i
+            break
+
+    return l, r
+
+
 if __name__ == '__main__':
     left = cv2.imread("images/1-1.jpeg")
     right = cv2.imread("images/1-2.jpeg")
@@ -44,25 +58,54 @@ if __name__ == '__main__':
     right_rectified= cv2.remap(right, right_stero_map[0], right_stero_map[1], cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
     
     combine = np.concatenate((left_rectified, right_rectified), axis=1)
+    
+    for i in range(0, combine.shape[0], 100):
+        cv2.line(combine, (0, i), (combine.shape[1]-1, i), (0, 0, 255), thickness=1)
     cv2.imwrite("combine.png", combine)
     
-    window_size = 3
-    sgbm = cv2.StereoSGBM_create(
-        minDisparity=0,
-        numDisparities=240,  # max_disp has to be dividable by 16 f. E. HH 192, 256
-        blockSize=3,
-        P1=8 * 3 * window_size ** 2,
-        # wsize default 3; 5; 7 for SGBM reduced size image; 15 for SGBM full size image (1300px and above); 5 Works nicely
-        P2=32 * 3 * window_size ** 2,
-        disp12MaxDiff=1,
-        uniquenessRatio=15,
-        speckleWindowSize=0,
-        speckleRange=2,
-        preFilterCap=63,
-        mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY
-    )
+    left_rectified = cv2.cvtColor(left_rectified, cv2.COLOR_BGR2GRAY)
+    right_rectified = cv2.cvtColor(right_rectified, cv2.COLOR_BGR2GRAY)
+    
+    window_size = 9
+    min_disp = 0
+    num_disp = 112 - min_disp
+    stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
+                                   numDisparities=num_disp,
+                                   blockSize=8,
+                                   P1=8 * 3 * window_size ** 2,
+                                   P2=32 * 3 * window_size ** 2,
+                                   disp12MaxDiff=1,
+                                   uniquenessRatio=10,
+                                   speckleWindowSize=100,
+                                   speckleRange=32
+                                   )
 
-    disparity = sgbm.compute(left_rectified, right_rectified).astype(np.float32) / 16.0
-    cv2.imwrite("disparity.jpg", disparity)
+    disp = stereo.compute(left_rectified, right_rectified).astype(np.float32) / 16.0
+    
+    print(disp)
+    new_disp = (disp - min_disp) / num_disp
+    cv2.imwrite("disparity.jpg", disp)
     
     
+    
+    
+    # count = 0
+    # for j in range(new_disp.shape[0]):
+    #     if new_disp[0, j] > 0:
+    #         count = j
+    #         break
+    # new_disp_pp = np.zeros_like(new_disp)
+    # for i in range(new_disp.shape[0]):
+    #     for j in range(count, new_disp.shape[1] - 1):
+    #         if new_disp[i, j] <= 0:
+    #             left, right = get_f_r(j, new_disp[i])
+    #             #up, down  = get_f_r(i, new_disp[:, j])
+    #             new_disp_pp[i, j] = (new_disp[i, left - 1] + new_disp[i, right + 1]) / 2
+    #         else:
+    #             new_disp_pp[i, j] = new_disp[i, j]
+    # new_disp_pp = cv2.medianBlur(new_disp_pp, 7)
+    
+    # cv2.imshow('disp', disp)
+    # cv2.imshow('org_disp', new_disp)
+    # cv2.imshow("disp_pp", new_disp_pp)
+    # cv2.waitKey(0)
