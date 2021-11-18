@@ -11,11 +11,11 @@ def get_sift_matches(image1, image2, ratio=0.8):
     matches = matcher.knnMatch(des1, des2, k = 2)
     pts1, pts2 = [], []
     for m, n in matches:
-        if m.distance < 0.8*n.distance:
+        if m.distance < 0.85*n.distance:
             pts2.append(kp2[m.trainIdx].pt)
             pts1.append(kp1[m.queryIdx].pt)
-    pts1 = np.int32(pts1)
-    pts2 = np.int32(pts2)
+    pts1 = np.array(pts1)
+    pts2 = np.array(pts2)
     
     return pts1, pts2
 
@@ -39,8 +39,8 @@ def get_f_r(pos, arr):
 
 
 if __name__ == '__main__':
-    left = cv2.imread("images/1-1.jpeg")
-    right = cv2.imread("images/1-2.jpeg")
+    left = cv2.imread("images/2-1.JPG")
+    right = cv2.imread("images/2-2.JPG")
 
     camK = np.array([[3.38048001e+03, 0.00000000e+00, 2.08729544e+03],
                     [0.00000000e+00, 3.37789767e+03, 1.43524514e+03],
@@ -48,6 +48,10 @@ if __name__ == '__main__':
     D = np.array([[2.66170916e-01, -1.66939104e+00, -5.80920399e-04, 1.99668672e-04, 3.64622788e+00]])
     
     points1, points2 = get_sift_matches(left, right)
+    np.savez("images/corr2.npz", left=points1, right=points2)
+    print(points1.shape[0])
+    exit()
+    
     R, t = get_extrinsics(points1, points2, camK)
     print(R, t)
 
@@ -68,7 +72,7 @@ if __name__ == '__main__':
     
     window_size = 9
     min_disp = 0
-    num_disp = 112 - min_disp
+    num_disp = 240 - min_disp
     stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
                                    numDisparities=num_disp,
                                    blockSize=8,
@@ -83,7 +87,7 @@ if __name__ == '__main__':
     disp = stereo.compute(left_rectified, right_rectified).astype(np.float32) / 16.0
     
     print(disp)
-    new_disp = (disp - min_disp) / num_disp
+    # new_disp = (disp - min_disp) / num_disp
     cv2.imwrite("disparity.jpg", disp)
     
     
